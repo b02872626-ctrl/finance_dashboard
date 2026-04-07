@@ -160,6 +160,32 @@ function App() {
     }
   }
 
+  const handleGoogleSignIn = async () => {
+    setAuthLoading(true)
+    setAuthMessage(null)
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      })
+
+      if (error) {
+        throw error
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Google sign-in failed.'
+      setAuthMessage(message)
+      setAuthLoading(false)
+    }
+  }
+
   const handleRefresh = async () => {
     const userId = session?.user.id
 
@@ -230,6 +256,7 @@ function App() {
         onEmailChange={setEmail}
         onPasswordChange={setPassword}
         onSubmit={handleAuthSubmit}
+        onGoogleSignIn={handleGoogleSignIn}
       />
     )
   }

@@ -33,6 +33,7 @@ export type Transaction = {
   total_charged: number | null
   raw_body: string
   created_at: string
+  receipt_link: string | null
 }
 
 export type FinanceSnapshot = {

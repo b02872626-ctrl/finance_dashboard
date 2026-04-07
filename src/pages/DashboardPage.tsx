@@ -894,7 +894,22 @@ function TransactionDetailModal({
           <DetailField label="Total charged" value={formatCurrency(transaction.total_charged, currencyCode)} />
           <DetailField label="Bank ID" value={String(transaction.bank_id)} />
           <DetailField label="Transaction ID" value={String(transaction.id)} />
-          <DetailField label="User ID" value={transaction.user_id} />
+          <div className="dashboard-review-modal__field">
+            <span>Receipt</span>
+            {transaction.receipt_link ? (
+              <a
+                href={transaction.receipt_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="button button--ghost button--small receipt-button"
+                style={{ padding: '0.2rem 0.6rem', minHeight: '1.5rem', fontSize: '0.75rem' }}
+              >
+                View receipt
+              </a>
+            ) : (
+              <strong>--</strong>
+            )}
+          </div>
           <DetailField label="Summary" value={item.subtitle} />
         </div>
 
