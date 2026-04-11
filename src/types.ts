@@ -14,15 +14,14 @@ export type TransactionSort =
 
 export type Bank = {
   id: number
-  user_id: string
   name: string
-  created_at: string
 }
 
 export type Transaction = {
   id: number
   user_id: string
   bank_id: number
+  bank_name: string | null
   occurred_at: string
   sender: string
   type: string

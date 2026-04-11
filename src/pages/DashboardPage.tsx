@@ -150,8 +150,7 @@ export function DashboardPage({ snapshot, userEmail }: DashboardPageProps) {
   const selectedBankName = useMemo(
     () =>
       selectedTransaction
-        ? snapshot.banks.find((bank) => bank.id === selectedTransaction.bank_id)?.name ??
-          `Bank ${selectedTransaction.bank_id}`
+        ? getBankLabel(snapshot.banks, selectedTransaction)
         : null,
     [selectedTransaction, snapshot.banks],
   )
@@ -892,7 +891,7 @@ function TransactionDetailModal({
           <DetailField label="Created" value={formatDateTime(transaction.created_at)} />
           <DetailField label="Balance" value={formatCurrency(transaction.balance, currencyCode)} />
           <DetailField label="Total charged" value={formatCurrency(transaction.total_charged, currencyCode)} />
-          <DetailField label="Bank ID" value={String(transaction.bank_id)} />
+          <DetailField label="User ID" value={transaction.user_id} />
           <DetailField label="Transaction ID" value={String(transaction.id)} />
           <div className="dashboard-review-modal__field">
             <span>Receipt</span>
@@ -1232,6 +1231,17 @@ function buildTransactionReviewLabel(transaction: Transaction) {
   }
 
   return rawLabel.replace(/\s+/g, ' ').trim().slice(0, 28)
+}
+
+function getBankLabel(
+  banks: FinanceSnapshot['banks'],
+  transaction: Pick<Transaction, 'bank_id' | 'bank_name'>,
+) {
+  return (
+    banks.find((bank) => bank.id === transaction.bank_id)?.name ??
+    transaction.bank_name ??
+    'Unknown source'
+  )
 }
 
 const axisTick = {

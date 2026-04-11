@@ -225,7 +225,7 @@ export function filterTransactions(
       }
 
       const searchHaystack = [
-        bankLookup.get(transaction.bank_id),
+        getBankName(bankLookup, transaction.bank_id, transaction.bank_name),
         transaction.sender,
         transaction.counterparty,
         transaction.ref_num,
@@ -525,7 +525,7 @@ export function buildBankVolumeData(transactions: Transaction[], banks: Bank[], 
   const totals = new Map<string, number>()
 
   for (const transaction of transactions) {
-    const label = bankLookup.get(transaction.bank_id) ?? `Bank ${transaction.bank_id}`
+      const label = getBankName(bankLookup, transaction.bank_id, transaction.bank_name)
     const current = totals.get(label) ?? 0
     totals.set(label, current + Math.abs(transaction.amount))
   }
@@ -640,7 +640,8 @@ export function buildSpendingFlowGraph(
   )
   const recurrenceLookup = buildCounterpartyRecurrenceLookup(outgoingTransactions)
   const records = outgoingTransactions.map((transaction) => {
-    const source = bankLookup.get(transaction.bank_id) ?? `Source ${transaction.bank_id}`
+      const source =
+        getBankName(bankLookup, transaction.bank_id, transaction.bank_name) || 'Unknown source'
     const profile = analyzeTransactionProfile(
       transaction,
       recurrenceLookup.get(resolveCounterpartyLabel(transaction)),
@@ -931,7 +932,7 @@ export function buildSankeyData(transactions: Transaction[], banks: Bank[]) {
   }
 
   for (const transaction of transactions) {
-    const bankLabel = bankLookup.get(transaction.bank_id) ?? `Bank ${transaction.bank_id}`
+      const bankLabel = getBankName(bankLookup, transaction.bank_id, transaction.bank_name)
     const typeLabel = transaction.type
     const counterpartyLabel = topCounterparties.has(
       transaction.counterparty || transaction.sender || 'Unlabeled',
@@ -1536,8 +1537,12 @@ function createDashboardTransactionItem(
   }
 }
 
-function getBankName(bankLookup: Map<number, string>, bankId: number) {
-  return bankLookup.get(bankId) ?? `Bank ${bankId}`
+function getBankName(
+  bankLookup: Map<number, string>,
+  bankId: number,
+  bankName?: string | null,
+) {
+  return bankLookup.get(bankId) ?? bankName ?? 'Unknown source'
 }
 
 function normalizeDuplicateLabel(value: string) {
