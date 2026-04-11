@@ -340,7 +340,7 @@ export function TransactionsPage({ snapshot }: TransactionsPageProps) {
                         <td>
                           <span className="badge">{transaction.type}</span>
                         </td>
-                        <td>{getBankLabel(snapshot.banks, transaction.bank_id)}</td>
+                        <td>{getBankLabel(snapshot.banks, transaction)}</td>
                         <td>{transaction.sender}</td>
                         <td>{transaction.counterparty || 'Unlabeled'}</td>
                         <td className={valueTone(transaction.type)}>
@@ -374,7 +374,7 @@ export function TransactionsPage({ snapshot }: TransactionsPageProps) {
 
       {activeSelectedTransaction ? (
         <TransactionDetailModal
-          bankName={getBankLabel(snapshot.banks, activeSelectedTransaction.bank_id)}
+          bankName={getBankLabel(snapshot.banks, activeSelectedTransaction)}
           onClose={() => setSelectedTransaction(null)}
           transaction={activeSelectedTransaction}
         />
@@ -652,7 +652,7 @@ function TransactionDetailModal({
           <DetailField label="Created" value={formatDateTime(transaction.created_at)} />
           <DetailField label="Balance" value={formatCurrency(transaction.balance, currencyCode)} />
           <DetailField label="Total charged" value={formatCurrency(transaction.total_charged, currencyCode)} />
-          <DetailField label="Bank ID" value={String(transaction.bank_id)} />
+          <DetailField label="User ID" value={transaction.user_id} />
           <DetailField label="Transaction ID" value={String(transaction.id)} />
           <div className="dashboard-review-modal__field">
             <span>Receipt</span>
@@ -798,8 +798,15 @@ function toggleTextSelection(selection: string[], value: string) {
     : [...selection, value]
 }
 
-function getBankLabel(banks: Bank[], bankId: number) {
-  return banks.find((bank) => bank.id === bankId)?.name ?? `Bank ${bankId}`
+function getBankLabel(
+  banks: Bank[],
+  transaction: Pick<Transaction, 'bank_id' | 'bank_name'>,
+) {
+  return (
+    banks.find((bank) => bank.id === transaction.bank_id)?.name ??
+    transaction.bank_name ??
+    'Unknown source'
+  )
 }
 
 function valueTone(type: string) {

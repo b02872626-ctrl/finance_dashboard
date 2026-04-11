@@ -1,34 +1,43 @@
 import { supabase } from './supabase'
 import type { Bank, FinanceSnapshot, Transaction } from '../types'
 
-const bankColumns = 'id,user_id,name,created_at'
+const bankColumns = 'id,bank_name'
 const transactionColumns =
-  'id,user_id,bank_id,occurred_at,sender,type,amount,balance,counterparty,ref_num,total_charged,raw_body,created_at,recipt_link'
+  'id,user_id,bank_name,occurred_at,sender,type,amount,balance,counterparty,ref_num,total_charged,raw_body,created_at,recipt_link'
 const transactionPageSize = 1000
 
 export async function loadFinanceSnapshot(
   userId: string,
 ): Promise<FinanceSnapshot> {
-  const [banksResponse, transactions] = await Promise.all([
-    supabase
-      .from('i_banks')
-      .select(bankColumns)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true }),
+  const [bankRecords, transactionRecords] = await Promise.all([
+    loadBanks(),
     loadAllTransactions(userId),
   ])
-
-  if (banksResponse.error) {
-    throw new Error(banksResponse.error.message)
-  }
+  const banks = mergeBanksWithTransactionNames(
+    normalizeBanks(bankRecords),
+    transactionRecords,
+  )
 
   return {
-    banks: normalizeBanks(banksResponse.data ?? []),
-    transactions,
+    banks,
+    transactions: normalizeTransactions(transactionRecords, banks),
   }
 }
 
-async function loadAllTransactions(userId: string): Promise<Transaction[]> {
+async function loadBanks(): Promise<BankRecord[]> {
+  const { data, error } = await supabase
+    .from('i_banks')
+    .select(bankColumns)
+    .order('bank_name', { ascending: true })
+
+  if (error) {
+    return []
+  }
+
+  return data ?? []
+}
+
+async function loadAllTransactions(userId: string): Promise<TransactionRecord[]> {
   const records: TransactionRecord[] = []
   let from = 0
 
@@ -54,23 +63,77 @@ async function loadAllTransactions(userId: string): Promise<Transaction[]> {
     from += transactionPageSize
   }
 
-  return normalizeTransactions(records)
+  return records
 }
 
 function normalizeBanks(records: BankRecord[]): Bank[] {
   return records.map((record) => ({
     id: Number(record.id),
-    user_id: record.user_id,
-    name: record.name,
-    created_at: record.created_at,
+    name: cleanBankName(record.bank_name) || `Bank ${record.id}`,
   }))
 }
 
-function normalizeTransactions(records: TransactionRecord[]): Transaction[] {
+function mergeBanksWithTransactionNames(
+  banks: Bank[],
+  records: TransactionRecord[],
+): Bank[] {
+  const merged = [...banks]
+  const seenNames = new Set(
+    merged
+      .map((bank) => normalizeBankName(bank.name))
+      .filter((value): value is string => Boolean(value)),
+  )
+  let syntheticBankId = -1
+  let needsUnknownSource = false
+
+  for (const record of records) {
+    const bankName = cleanBankName(record.bank_name)
+
+    if (!bankName) {
+      needsUnknownSource = true
+      continue
+    }
+
+    const normalizedBankName = normalizeBankName(bankName)
+
+    if (!normalizedBankName || seenNames.has(normalizedBankName)) {
+      continue
+    }
+
+    merged.push({
+      id: syntheticBankId,
+      name: bankName,
+    })
+    seenNames.add(normalizedBankName)
+    syntheticBankId -= 1
+  }
+
+  if (needsUnknownSource && !seenNames.has('unknown source')) {
+    merged.push({
+      id: syntheticBankId,
+      name: 'Unknown source',
+    })
+  }
+
+  return merged
+}
+
+function normalizeTransactions(records: TransactionRecord[], banks: Bank[]): Transaction[] {
+  const bankIdByName = new Map(
+    banks.map((bank) => [normalizeBankName(bank.name), bank.id] as const),
+  )
+  const unknownBankId =
+    bankIdByName.get(normalizeBankName('Unknown source')) ?? 0
+
   return records.map((record) => ({
     id: Number(record.id),
     user_id: record.user_id,
-    bank_id: Number(record.bank_id),
+    bank_id:
+      cleanBankName(record.bank_name) &&
+      bankIdByName.has(normalizeBankName(cleanBankName(record.bank_name))!)
+        ? bankIdByName.get(normalizeBankName(cleanBankName(record.bank_name))!) ?? unknownBankId
+        : unknownBankId,
+    bank_name: cleanBankName(record.bank_name),
     occurred_at: record.occurred_at,
     sender: record.sender,
     type: record.type,
@@ -91,17 +154,24 @@ function normalizeTransactions(records: TransactionRecord[]): Transaction[] {
   }))
 }
 
+function cleanBankName(value: string | null | undefined) {
+  const normalized = value?.replace(/\s+/g, ' ').trim()
+  return normalized ? normalized : null
+}
+
+function normalizeBankName(value: string | null | undefined) {
+  return cleanBankName(value)?.toLowerCase() ?? null
+}
+
 type BankRecord = {
   id: number | string
-  user_id: string
-  name: string
-  created_at: string
+  bank_name: string
 }
 
 type TransactionRecord = {
   id: number | string
   user_id: string
-  bank_id: number | string
+  bank_name: string | null
   occurred_at: string
   sender: string
   type: string
